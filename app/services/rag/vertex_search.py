@@ -44,14 +44,13 @@ def _sync_search(query: str, top_k: int) -> list[dict]:
         serving_config=serving_config,
         query=query,
         page_size=top_k,
+        # Snippets only — compatible with Standard edition Agent Search.
+        # Upgrade to Enterprise edition to unlock extractive segments/answers
+        # for richer, more complete chunk text from PDFs.
         content_search_spec=discoveryengine.SearchRequest.ContentSearchSpec(
             snippet_spec=discoveryengine.SearchRequest.ContentSearchSpec.SnippetSpec(
                 return_snippet=True,
-                max_snippet_count=3,
-            ),
-            extractive_content_spec=discoveryengine.SearchRequest.ContentSearchSpec.ExtractiveContentSpec(
-                max_extractive_answer_count=2,
-                max_extractive_segment_count=3,
+                max_snippet_count=5,
             ),
         ),
     )

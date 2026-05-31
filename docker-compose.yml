@@ -43,6 +43,11 @@ services:
   api:
     build:
       context: .
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
     ports:
       - "8000:8080"
     env_file:

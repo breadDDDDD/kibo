@@ -20,7 +20,7 @@ ENV PATH="/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir --prefer-binary --index-url https://pypi.org/simple -r requirements.txt
 
 
 # ── Stage 2: runtime image ─────────────────────────────────────────────

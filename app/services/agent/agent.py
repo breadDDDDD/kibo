@@ -19,7 +19,6 @@ import google.generativeai as genai
 from app.core.gemini_client import get_gemini_client
 from app.core.config import get_settings
 from app.schemas.chat import PartResult, TelemetryData
-from app.services.agent.prompts import SYSTEM_PROMPT
 from app.services.agent.tool_executor import execute_tool
 from app.services.agent.tools import TOOLS
 from app.services.inventory.queries import get_stock_by_part_number
@@ -119,7 +118,6 @@ async def _pathway_ac(session_id: str, message: str) -> AgentResult:
             lambda: model.generate_content(
                 history,
                 tools=[TOOLS],
-                system_instruction=SYSTEM_PROMPT,
                 tool_config={"function_calling_config": {"mode": "AUTO"}},
             ),
         )
