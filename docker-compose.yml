@@ -1,0 +1,65 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════════
+#  SparePartAI — Local Docker Compose
+#  Connects to GCP Cloud SQL via the Cloud SQL Auth Proxy sidecar.
+#  All GCP services (Agent Search, Gemini) are called directly over HTTPS
+#  using Application Default Credentials (ADC) from your host machine.
+#
+#  Linux / macOS:  ADC_PATH defaults to ~/.config/gcloud/application_default_credentials.json
+#  Windows:        Set ADC_PATH in your shell before running:
+#                  $env:ADC_PATH="C:\Users\<YOU>\AppData\Roaming\gcloud\application_default_credentials.json"
+# ══════════════════════════════════════════════════════════════════════
+
+x-adc-volume: &adc-volume
+  type: bind
+  source: ${ADC_PATH:-~/.config/gcloud/application_default_credentials.json}
+  target: /gcp/gcp_creds.json
+  read_only: true
+
+services:
+
+  # ── Cloud SQL Auth Proxy ─────────────────────────────────────────────
+  cloudsql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1-alpine
+    command:
+      - "--address=0.0.0.0"
+      - "--port=5432"
+      - "${CLOUDSQL_INSTANCE_CONNECTION_NAME}"
+    ports:
+      - "5432:5432"
+    volumes:
+      - <<: *adc-volume
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/gcp_creds.json
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 5432 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI backend ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+    ports:
+      - "8000:8080"
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /gcp/gcp_creds.json
+      CLOUDSQL_USE_PROXY: "true"
+      CLOUDSQL_PROXY_HOST: cloudsql-proxy
+      CLOUDSQL_PROXY_PORT: "5432"
+      APP_ENV: development
+    depends_on:
+      cloudsql-proxy:
+        condition: service_healthy
+    volumes:
+      # Hot reload — bind-mount app source for instant code changes
+      - ./app:/app/app
+      - ./templates:/app/templates
+      - <<: *adc-volume
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+    restart: unless-stopped
