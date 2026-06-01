@@ -79,6 +79,16 @@ async def _run_rag_search(args: dict) -> dict:
             "chunk_count": 0,
             "car_model_filter": car_model,
         }
+        # ── Log each chunk so content is visible in docker logs ──────────────
+    logger.info("RAG result: %d chunk(s) passed for query='%s' car='%s'",
+                len(chunks), query, car_model)
+    for i, chunk in enumerate(chunks, 1):
+        logger.info(
+            "  [Chunk %d | doc=%s]\n%s",
+            i,
+            chunk.get("document_id", "?"),
+            chunk["content"],
+        )
 
     formatted = format_chunks_for_prompt(chunks)
     return {
