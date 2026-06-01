@@ -54,7 +54,6 @@ def clear_session(session_id: str) -> None:
 
 
 # ── Pathway B: direct part-number short-circuit ─────────────────────────────
-
 async def _pathway_b(session_id: str, message: str, part_number: str) -> AgentResult:
     start = time.perf_counter()
     logger.info("[Pathway B] Direct stock lookup: %s", part_number)
@@ -64,7 +63,12 @@ async def _pathway_b(session_id: str, message: str, part_number: str) -> AgentRe
 
     if part_row is None:
         return AgentResult(
-            reply=f"No part found with number **{part_number}** in the database.",
+            part=PartResult(
+                product_number=part_number,
+                car_type="Unknown",
+                stock=0,
+                not_found=True,
+            ),
             telemetry=TelemetryData(
                 latency_ms=round(latency, 2),
                 input_tokens=0,
@@ -79,6 +83,7 @@ async def _pathway_b(session_id: str, message: str, part_number: str) -> AgentRe
             product_number=part_row.product_number,
             car_type=part_row.car_type,
             stock=part_row.stock,
+            not_found=False,
         ),
         telemetry=TelemetryData(
             latency_ms=round(latency, 2),
@@ -88,6 +93,39 @@ async def _pathway_b(session_id: str, message: str, part_number: str) -> AgentRe
             pathway="B",
         ),
     )
+# async def _pathway_b(session_id: str, message: str, part_number: str) -> AgentResult:
+#     start = time.perf_counter()
+#     logger.info("[Pathway B] Direct stock lookup: %s", part_number)
+
+#     part_row = await get_stock_by_part_number(part_number)
+#     latency = (time.perf_counter() - start) * 1000
+
+#     if part_row is None:
+#         return AgentResult(
+#             reply=f"No part found with number **{part_number}** in the database.",
+#             telemetry=TelemetryData(
+#                 latency_ms=round(latency, 2),
+#                 input_tokens=0,
+#                 output_tokens=0,
+#                 tool_calls=["get_stock_by_part_id"],
+#                 pathway="B",
+#             ),
+#         )
+
+#     return AgentResult(
+#         part=PartResult(
+#             product_number=part_row.product_number,
+#             car_type=part_row.car_type,
+#             stock=part_row.stock,
+#         ),
+#         telemetry=TelemetryData(
+#             latency_ms=round(latency, 2),
+#             input_tokens=0,
+#             output_tokens=0,
+#             tool_calls=["get_stock_by_part_id"],
+#             pathway="B",
+#         ),
+#     )
 
 
 # ── Pathway A/C: LLM agentic loop ────────────────────────────────────────────
@@ -157,12 +195,20 @@ async def _pathway_ac(session_id: str, message: str) -> AgentResult:
             logger.info("[Pathway A] Tool call: %s(%s)", tool_name, tool_args)
             tool_result = await execute_tool(tool_name, tool_args)
 
-            if tool_name == "get_stock_by_part_id" and tool_result.get("found"):
+            # if tool_name == "get_stock_by_part_id" and tool_result.get("found"):
+            #     part_result = PartResult(
+            #         product_number=tool_result["product_number"],
+            #         car_type=tool_result["car_type"],
+            #         stock=tool_result["stock"],
+            #         part_name=tool_args.get("part_name") or None,
+            #     )
+            if tool_name == "get_stock_by_part_id":
                 part_result = PartResult(
                     product_number=tool_result["product_number"],
-                    car_type=tool_result["car_type"],
-                    stock=tool_result["stock"],
+                    car_type=tool_result.get("car_type", "Unknown"),
+                    stock=tool_result.get("stock", 0),
                     part_name=tool_args.get("part_name") or None,
+                    not_found=not tool_result.get("found", False),  # ← True when found=False
                 )
 
             function_responses.append(

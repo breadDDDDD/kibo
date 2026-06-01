@@ -106,9 +106,35 @@ async def _run_rag_search(args: dict) -> dict:
     }
 
 
+# async def _run_stock_lookup(args: dict) -> dict:
+#     product_number = args.get("product_number", "").strip()
+#     logger.info("Stock lookup: %s", product_number)
+#     part = await get_stock_by_part_number(product_number)
+
+#     if part is None:
+#         return {
+#             "found": False,
+#             "product_number": product_number,
+#             "message": f"No part found with number: {product_number}",
+#         }
+
+#     return {
+#         "found": True,
+#         "product_number": part.product_number,
+#         "car_type": part.car_type,
+#         "stock": part.stock,
+#     }
+
 async def _run_stock_lookup(args: dict) -> dict:
     product_number = args.get("product_number", "").strip()
-    logger.info("Stock lookup: %s", product_number)
+    part_name      = args.get("part_name", "").strip()
+
+    if part_name and (len(part_name) < 6 or part_name == part_name.lower()):
+        logger.warning(
+            "part_name '%s' looks like a raw query, not a catalog name.", part_name
+        )
+
+    logger.info("Stock lookup: %s (part_name=%s)", product_number, part_name)
     part = await get_stock_by_part_number(product_number)
 
     if part is None:

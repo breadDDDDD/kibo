@@ -5,6 +5,7 @@ Loaded once at startup via a cached singleton.
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,7 +21,32 @@ class Settings(BaseSettings):
     app_env: Literal["development", "production"] = "development"
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    cors_origins_raw: str = Field(
+        default="http://localhost:8000,http://localhost:8080",
+        alias="CORS_ORIGINS",
+    )
+
+    @field_validator("cors_origins_raw", mode="before")
+    @classmethod
+    def parse_cors(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if v == "*":
+                return "*"
+            if v.startswith("["):
+                import json
+                try:
+                    return ",".join(json.loads(v))
+                except Exception:
+                    pass
+            return v
+        return v
+
+    @property
+    def cors_origins(self) -> list[str]:
+        if self.cors_origins_raw == "*":
+            return ["*"]
+        return [i.strip() for i in self.cors_origins_raw.split(",")]
 
     # ── GCP ───────────────────────────────────────────────────────────
     google_cloud_project: str = ""
@@ -58,13 +84,11 @@ class Settings(BaseSettings):
 
     @property
     def db_dsn(self) -> str:
-        """Build asyncpg DSN based on proxy vs socket mode."""
         if self.cloudsql_use_proxy:
             return (
                 f"postgresql+asyncpg://{self.cloudsql_user}:{self.cloudsql_password}"
                 f"@{self.cloudsql_proxy_host}:{self.cloudsql_proxy_port}/{self.cloudsql_db}"
             )
-        # Cloud Run — Unix socket via Cloud SQL Connector
         socket_path = f"/cloudsql/{self.cloudsql_instance_connection_name}"
         return (
             f"postgresql+asyncpg://{self.cloudsql_user}:{self.cloudsql_password}"
