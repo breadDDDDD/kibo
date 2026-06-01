@@ -157,12 +157,13 @@ async def _pathway_ac(session_id: str, message: str) -> AgentResult:
             logger.info("[Pathway A] Tool call: %s(%s)", tool_name, tool_args)
             tool_result = await execute_tool(tool_name, tool_args)
 
-            # If stock lookup succeeded, capture part data
+            # If stock lookup succeeded, capture part data + name from tool args
             if tool_name == "get_stock_by_part_id" and tool_result.get("found"):
                 part_result = PartResult(
                     product_number=tool_result["product_number"],
                     car_type=tool_result["car_type"],
                     stock=tool_result["stock"],
+                    part_name=tool_args.get("part_name") or None,
                 )
 
             function_responses.append(

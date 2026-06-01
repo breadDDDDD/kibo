@@ -9,7 +9,6 @@ search_parts_catalog_tool = genai.protos.FunctionDeclaration(
     description=(
         "Searches the Mitsubishi parts catalog PDFs using semantic similarity. "
         "Use this when the user describes a part by name, location, or function. "
-        "Ensure to saerch parts that are the same as the car type asked by the user"
         "Returns relevant catalog chunks containing part names, descriptions, and product numbers."
     ),
     parameters=genai.protos.Schema(
@@ -42,9 +41,17 @@ get_stock_by_part_id_tool = genai.protos.FunctionDeclaration(
                     "The exact alphanumeric part/product number "
                     "(e.g. '7450A951', 'MD360935M'). Case-insensitive."
                 ),
-            )
+            ),
+            "part_name": genai.protos.Schema(
+                type=genai.protos.Type.STRING,
+                description=(
+                    "The human-readable part name extracted from the catalog chunk "
+                    "(e.g. 'Front Bumper Assembly', 'Oil Filter Element'). "
+                    "Extract this from the catalog context — do NOT invent it."
+                ),
+            ),
         },
-        required=["product_number"],
+        required=["product_number", "part_name"],
     ),
 )
 
