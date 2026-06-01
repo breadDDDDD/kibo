@@ -18,11 +18,20 @@ search_parts_catalog_tool = genai.protos.FunctionDeclaration(
                 type=genai.protos.Type.STRING,
                 description=(
                     "The search query — use the user's description as-is or refine it "
-                    "to be more specific (e.g. 'bumper depan Xpander', 'oil filter Pajero Sport')."
+                    "to be more specific (e.g. 'bumper depan', 'oil filter', 'headlamp')."
                 ),
-            )
+            ),
+            "car_model": genai.protos.Schema(
+                type=genai.protos.Type.STRING,
+                description=(
+                    "The exact car model the user mentioned. Must be one of: "
+                    "'Xpander', 'Pajero Sport', 'Xforce', 'Destinator'. "
+                    "Always extract this from the user's message. "
+                    "This is used to filter results to the correct vehicle."
+                ),
+            ),
         },
-        required=["query"],
+        required=["query", "car_model"],
     ),
 )
 
