@@ -16,7 +16,9 @@ from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.engine import close_db, init_db
 from app.api.routes import chat, parts
+from fastapi.staticfiles import StaticFiles
 
+CURRENT_DIR = Path(__file__).resolve().parent
 setup_logging()
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -53,6 +55,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    static_path = CURRENT_DIR / "static"
+    _app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
     # API routes
     _app.include_router(chat.router, prefix=settings.api_prefix)
