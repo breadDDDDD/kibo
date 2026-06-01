@@ -9,6 +9,7 @@ search_parts_catalog_tool = genai.protos.FunctionDeclaration(
     description=(
         "Searches the Mitsubishi parts catalog PDFs using semantic similarity. "
         "Use this when the user describes a part by name, location, or function. "
+        "Ensure to saerch parts that are the same as the car type asked by the user"
         "Returns relevant catalog chunks containing part names, descriptions, and product numbers."
     ),
     parameters=genai.protos.Schema(
