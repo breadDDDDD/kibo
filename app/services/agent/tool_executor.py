@@ -20,6 +20,13 @@ logger = logging.getLogger(__name__)
 
 # Known car models — used for chunk filtering
 CAR_MODELS = ["xpander", "pajero sport", "pajero", "xforce", "x-force", "destinator"]
+def _normalize_query(query: str) -> str:
+    """
+    Sort query words alphabetically so 'filter oil' and 'oil filter'
+    produce the same search string. Lowercased for consistency.
+    """
+    words = query.lower().split()
+    return " ".join(sorted(words))
 
 
 def _filter_chunks_by_car(chunks: list[dict], car_model: str) -> list[dict]:
@@ -64,7 +71,8 @@ async def _run_rag_search(args: dict) -> dict:
     car_model = args.get("car_model", "").strip()
 
     # Always include car model in the search query for better ranking
-    search_query = f"{query} {car_model}".strip() if car_model else query
+    normalized = _normalize_query(query)
+    search_query = f"{normalized} {car_model}".strip() if car_model else normalized
     logger.info("RAG search: %s (car_model=%s)", search_query, car_model or "unspecified")
 
     chunks = await search_parts_catalog(search_query)

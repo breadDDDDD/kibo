@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     # ── Agent ─────────────────────────────────────────────────────────
     agent_max_tool_calls: int = 10
-    rag_top_k: int = 5
+    rag_top_k: int = 10
 
     @property
     def is_dev(self) -> bool:

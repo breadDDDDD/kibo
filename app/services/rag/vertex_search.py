@@ -5,6 +5,7 @@ as plain text strings — ready to be injected into a Gemini prompt.
 """
 import asyncio
 import logging
+import re 
 from functools import lru_cache
 
 from google.cloud import discoveryengine_v1beta as discoveryengine
@@ -12,6 +13,17 @@ from google.cloud import discoveryengine_v1beta as discoveryengine
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+def _strip_html(text: str) -> str:
+    """Remove HTML tags and decode common entities from snippet text."""
+    text = re.sub(r"<[^>]+>", "", text)          
+    text = text.replace("&nbsp;", " ")
+    text = text.replace("&amp;", "&")
+    text = text.replace("&lt;", "<")
+    text = text.replace("&gt;", ">")
+    text = text.replace("&quot;", '"')
+    text = re.sub(r"\s{2,}", " ", text)         
+    return text.strip()
 
 
 @lru_cache
@@ -75,8 +87,9 @@ def _sync_search(query: str, top_k: int) -> list[dict]:
         )
 
         for text in texts:
-            if text.strip():
-                chunks.append({"content": text.strip(), "document_id": doc_id})
+            clean = _strip_html(text)
+            if clean:
+                chunks.append({"content": clean, "document_id": doc_id})
 
     logger.debug("Agent Search returned %d chunks for query: %s", len(chunks), query)
     return chunks
