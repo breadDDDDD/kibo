@@ -56,6 +56,9 @@ logger = logging.getLogger("sparepart.telemetry")
 #         logger.warning("Telemetry write failed: %s", exc)
 
 
+logger = logging.getLogger("sparepart.telemetry")
+
+
 async def log_telemetry(
     session_id: str,
     pathway: str,
@@ -64,20 +67,12 @@ async def log_telemetry(
     output_tokens: int,
     tool_calls: list[str],
 ) -> None:
-    """Fire-and-forget telemetry write — called with asyncio.create_task."""
     try:
-        entry = {
-            "event": "chat_request",
-            "session_id": session_id,
-            "pathway": pathway,
-            "latency_ms": round(latency_ms, 2),
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": input_tokens + output_tokens,
-            "tool_calls": tool_calls,
-            "tool_call_count": len(tool_calls),
-            "ts": datetime.now(timezone.utc).isoformat(),
-        }
-        logger.info(json.dumps(entry))
+        logger.info(
+            "chat_request latency=%.2f tokens=%d pathway=%s",
+            latency_ms,
+            input_tokens + output_tokens,
+            pathway,
+        )
     except Exception as exc:
         logger.warning("Telemetry write failed: %s", exc)
