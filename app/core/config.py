@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     db_pool_max: int = 10
 
     # ── Agent ─────────────────────────────────────────────────────────
-    agent_max_tool_calls: int = 10
+    agent_max_tool_calls: int = 4
     rag_top_k: int = 10
 
     @property

@@ -31,6 +31,7 @@ PART_NUMBER_RE = re.compile(r"\b([A-Z]{0,4}\d{3,6}[A-Z]\d{2,4}[A-Z]?)\b", re.IGN
 # ── In-process conversation store: session_id → list of Content objects ────
 _sessions: dict[str, list] = {}
 _MAX_HISTORY_TURNS = 5
+_MAX_SESSIONS = 1000
 
 
 # ── Result dataclass ────────────────────────────────────────────────────────
@@ -439,6 +440,10 @@ async def run_agent(session_id: str, message: str) -> AgentResult:
     if match:
         logger.info("[Router] Pathway B detected, part number: %s", match.group(1))
         return await _pathway_b(session_id, message, match.group(1))
+    if session_id not in _sessions and len(_sessions) >= _MAX_SESSIONS:
+        oldest = next(iter(_sessions))
+        del _sessions[oldest]
+        logger.warning("Session cap reached — evicted oldest session: %s", oldest)
 
     # Pathway A/C: send to LLM
     return await _pathway_ac(session_id, message)
