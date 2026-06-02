@@ -1,4 +1,4 @@
-# SparePartAI
+# KIBO
 
 A FastAPI backend for Mitsubishi spare parts tracking with AI-assisted chat and direct part stock lookup.
 
