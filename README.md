@@ -140,3 +140,90 @@ curl http://localhost:8080/api/v1/parts/7450A951/stock
 - Session history is stored in memory per `session_id` and persists only while the process runs.
 - The agent uses a hybrid approach: direct part number lookup for exact codes, and Gemini tool calls for natural language requests.
 - `docker-compose.yml` is configured for local development with hot-reload and Cloud SQL Auth Proxy support.
+
+
+## Monitoring & Observability
+
+All application monitoring, performance tracking, and log aggregation are handled natively within the **Google Cloud Platform (GCP)** ecosystem via Cloud Logging and Cloud Monitoring using **Log-based Metrics**.
+
+To populate these metrics, the FastAPI backend emits structured JSON logs to `stdout`. Below are the configurations for tracking system performance, LLM token costs, and agent routing logic.
+
+---
+
+### 1. Request Latency Metric
+This distribution metric tracks the execution duration of API routes and agent workflows to monitor response times and alert on bottlenecks.
+
+* **Metric Type:** Distribution
+* **Log Metric Name:** `kibo/backend/request_latency`
+* **Unit:** `ms`
+* **Filter Selection:**
+  ```query
+  resource.type="cloud_run_revision" OR resource.type="k8s_container"
+  jsonPayload.message="Request processed"
+  jsonPayload.duration_ms=~".*"
+  ```
+* **Field Name:** `jsonPayload.duration_ms`
+* **Advanced Bucket Classifier:** Explicit
+* **Bounds:** `100, 200, 500, 1000, 2000, 3000, 5000, 10000`
+
+---
+
+### 2. LLM Token Usage Metric
+This counter metric extracts and aggregates the total volume of input and output tokens consumed by the Gemini API to monitor and forecast costs.
+
+* **Metric Type:** Counter
+* **Log Metric Name:** `kibo/gemini/token_usage`
+* **Filter Selection:**
+  ```query
+  resource.type="cloud_run_revision" OR resource.type="k8s_container"
+  jsonPayload.event="gemini_completion"
+  jsonPayload.telemetry.total_tokens=~".*"
+  ```
+* **Metric Value Field:** `jsonPayload.telemetry.total_tokens` *(Ensures Cloud Logging calculates the sum of tokens rather than log row count)*
+* **Labels:**
+  * **Label Key:** `model` &rarr; **Field Path:** `jsonPayload.telemetry.model`
+  * **Label Key:** `session_id` &rarr; **Field Path:** `jsonPayload.session_id`
+
+---
+
+### 3. Query Pathway Routing Metric
+This counter monitors the application's hybrid logic by measuring how many user queries are handled via a high-speed direct database lookup versus the full Gemini LLM agent loop.
+
+* **Metric Type:** Counter
+* **Log Metric Name:** `kibo/chat/pathway_routing`
+* **Filter Selection:**
+  ```query
+  resource.type="cloud_run_revision" OR resource.type="k8s_container"
+  jsonPayload.event="query_routed"
+  jsonPayload.pathway=~".*"
+  ```
+* **Labels:**
+  * **Label Key:** `pathway_type` &rarr; **Field Path:** `jsonPayload.pathway` *(Expected outputs: `direct_db_lookup` or `llm_agent`)*
+
+---
+
+### Expected Application Log Format
+For the filters above to match successfully, ensure your `app/core/logging.py` or telemetry middleware structures logs outputting to `stdout` like this:
+
+```json
+{
+  "message": "Request processed",
+  "event": "gemini_completion",
+  "pathway": "llm_agent",
+  "duration_ms": 1420,
+  "session_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+  "telemetry": {
+    "model": "gemini-1.5-flash",
+    "total_tokens": 512
+  }
+}
+```
+
+> [!TIP]
+> Once created in **Logging > Log-based Metrics**, you can directly add these metrics to a custom Google Cloud Monitoring Dashboard or use them to set up Cloud Monitoring alert policies.
+
+## Notes
+
+- Session history is stored in memory per `session_id` and persists only while the process runs.
+- The agent uses a hybrid approach: direct part number lookup for exact codes, and Gemini tool calls for natural language requests.
+- `docker-compose.yml` is configured for local development with hot-reload and Cloud SQL Auth Proxy support.
