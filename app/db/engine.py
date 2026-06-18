@@ -1,6 +1,6 @@
 """
-Database engine — async SQLAlchemy pool.
-Supports Cloud SQL Auth Proxy (local/dev) and Unix socket (Cloud Run).
+Database engine - async SQLAlchemy pool.
+Supports Neon (or any PostgreSQL URL via DATABASE_URL/NEON_DATABASE_URL).
 """
 import logging
 from contextlib import asynccontextmanager
@@ -47,7 +47,7 @@ async def close_db() -> None:
 @asynccontextmanager
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     if _session_factory is None:
-        raise RuntimeError("Database not initialised — call init_db() first")
+        raise RuntimeError("Database not initialised - call init_db() first")
     async with _session_factory() as session:
         try:
             yield session

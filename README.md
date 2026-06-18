@@ -26,7 +26,7 @@ KIBO uses agentic AI workflows to:
 - SQLAlchemy async + `asyncpg`
 - Google Gemini (`google-generativeai`)
 - Vertex AI Agent Search (`google-cloud-discoveryengine`)
-- PostgreSQL (Cloud SQL compatible)
+- PostgreSQL (Neon or Cloud SQL compatible)
 
 ## Local Deployment
 
@@ -36,7 +36,7 @@ KIBO uses agentic AI workflows to:
 - Pip
 - Docker Desktop (optional, for Compose workflow)
 - Access credentials for Gemini/Google Cloud services
-- Database access (Cloud SQL via proxy, or compatible PostgreSQL endpoint)
+- Database access (Neon PostgreSQL endpoint, or compatible PostgreSQL endpoint)
 
 ### 1) Install dependencies
 
@@ -66,13 +66,9 @@ GEMINI_TEMPERATURE=0.2
 AGENT_SEARCH_ENGINE_ID=your-engine-id
 AGENT_SEARCH_LOCATION=global
 
-CLOUDSQL_INSTANCE_CONNECTION_NAME=project:region:instance
-CLOUDSQL_DB=sparepartdb
-CLOUDSQL_USER=your-db-user
-CLOUDSQL_PASSWORD=your-db-password
-CLOUDSQL_USE_PROXY=true
-CLOUDSQL_PROXY_HOST=127.0.0.1
-CLOUDSQL_PROXY_PORT=5432
+NEON_DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+# or
+DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
 
 DB_POOL_MIN=2
 DB_POOL_MAX=10
@@ -83,7 +79,7 @@ RAG_TOP_K=10
 
 Notes:
 - `CORS_ORIGINS` supports comma-separated values.
-- Set `CLOUDSQL_USE_PROXY=false` only when using Unix socket deployment mode.
+- Use the Neon connection string from the Neon dashboard (include `sslmode=require`).
 
 ### 3) Run locally (direct)
 
@@ -104,7 +100,6 @@ docker compose up --build
 ```
 
 Services:
-- `cloudsql-proxy` on `5432`
 - `api` on `http://localhost:8000`
 
 Windows ADC example:
@@ -125,8 +120,7 @@ Important variables:
 - `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`
 - `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_MAX_OUTPUT_TOKENS`, `GEMINI_TEMPERATURE`
 - `AGENT_SEARCH_ENGINE_ID`, `AGENT_SEARCH_LOCATION`
-- `CLOUDSQL_INSTANCE_CONNECTION_NAME`, `CLOUDSQL_DB`, `CLOUDSQL_USER`, `CLOUDSQL_PASSWORD`
-- `CLOUDSQL_USE_PROXY`, `CLOUDSQL_PROXY_HOST`, `CLOUDSQL_PROXY_PORT`
+- `NEON_DATABASE_URL` (preferred) or `DATABASE_URL`
 - `DB_POOL_MIN`, `DB_POOL_MAX`
 - `AGENT_MAX_TOOL_CALLS`, `RAG_TOP_K`
 
@@ -222,3 +216,5 @@ curl -X DELETE http://localhost:8080/api/v1/chat/session/<uuid>
 - Session history is in-memory and tied to `session_id`.
 - Responses are limited to Mitsubishi spare-parts scope.
 - For best matching accuracy, include both part description and car model in requests.
+
+

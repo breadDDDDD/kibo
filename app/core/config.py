@@ -1,5 +1,5 @@
 """
-Core configuration — single source of truth for all env vars.
+Core configuration - single source of truth for all env vars.
 Loaded once at startup via a cached singleton.
 """
 from functools import lru_cache
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── App ────────────────────────────────────────────────────────────
+    # -- App ------------------------------------------------------------
     app_env: Literal["development", "production"] = "development"
     log_level: str = "INFO"
     api_prefix: str = "/api/v1"
@@ -48,21 +48,25 @@ class Settings(BaseSettings):
             return ["*"]
         return [i.strip() for i in self.cors_origins_raw.split(",")]
 
-    # ── GCP ───────────────────────────────────────────────────────────
+    # -- GCP ------------------------------------------------------------
     google_cloud_project: str = ""
     google_cloud_location: str = "us-central1"
 
-    # ── Gemini ────────────────────────────────────────────────────────
+    # -- Gemini ---------------------------------------------------------
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
     gemini_max_output_tokens: int = 2048
     gemini_temperature: float = 0.2
 
-    # ── Agent Search ──────────────────────────────────────────────────
+    # -- Agent Search ---------------------------------------------------
     agent_search_engine_id: str = ""
     agent_search_location: str = "global"
 
-    # ── Cloud SQL ─────────────────────────────────────────────────────
+    # -- Database -------------------------------------------------------
+    database_url: str = Field(default="", alias="DATABASE_URL")
+    neon_database_url: str = Field(default="", alias="NEON_DATABASE_URL")
+
+    # Backward-compatible Cloud SQL settings (legacy)
     cloudsql_instance_connection_name: str = ""
     cloudsql_db: str = "sparepartdb"
     cloudsql_user: str = ""
@@ -74,7 +78,7 @@ class Settings(BaseSettings):
     db_pool_min: int = 2
     db_pool_max: int = 10
 
-    # ── Agent ─────────────────────────────────────────────────────────
+    # -- Agent ----------------------------------------------------------
     agent_max_tool_calls: int = 4
     rag_top_k: int = 10
 
@@ -84,6 +88,14 @@ class Settings(BaseSettings):
 
     @property
     def db_dsn(self) -> str:
+        # Preferred: explicit Neon or generic database URL
+        raw_url = self.neon_database_url or self.database_url
+        if raw_url:
+            if raw_url.startswith("postgresql://"):
+                return raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return raw_url
+
+        # Legacy Cloud SQL fallback
         if self.cloudsql_use_proxy:
             return (
                 f"postgresql+asyncpg://{self.cloudsql_user}:{self.cloudsql_password}"
