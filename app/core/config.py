@@ -4,6 +4,7 @@ Loaded once at startup via a cached singleton.
 """
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
                 return "*"
             if v.startswith("["):
                 import json
+
                 try:
                     return ",".join(json.loads(v))
                 except Exception:
@@ -86,14 +88,31 @@ class Settings(BaseSettings):
     def is_dev(self) -> bool:
         return self.app_env == "development"
 
+    @staticmethod
+    def _normalize_db_url(raw_url: str) -> str:
+        dsn = raw_url
+        if dsn.startswith("postgresql://"):
+            dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+        parts = urlsplit(dsn)
+        query_items = parse_qsl(parts.query, keep_blank_values=True)
+        normalized_items: list[tuple[str, str]] = []
+        for key, value in query_items:
+            if key == "sslmode":
+                normalized_items.append(("ssl", value))
+            else:
+                normalized_items.append((key, value))
+
+        return urlunsplit(
+            (parts.scheme, parts.netloc, parts.path, urlencode(normalized_items), parts.fragment)
+        )
+
     @property
     def db_dsn(self) -> str:
         # Preferred: explicit Neon or generic database URL
         raw_url = self.neon_database_url or self.database_url
         if raw_url:
-            if raw_url.startswith("postgresql://"):
-                return raw_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-            return raw_url
+            return self._normalize_db_url(raw_url)
 
         # Legacy Cloud SQL fallback
         if self.cloudsql_use_proxy:
