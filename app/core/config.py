@@ -100,8 +100,10 @@ class Settings(BaseSettings):
         for key, value in query_items:
             if key == "sslmode":
                 normalized_items.append(("ssl", value))
-            else:
-                normalized_items.append((key, value))
+                continue
+            if key == "channel_binding":
+                continue
+            normalized_items.append((key, value))
 
         return urlunsplit(
             (parts.scheme, parts.netloc, parts.path, urlencode(normalized_items), parts.fragment)
