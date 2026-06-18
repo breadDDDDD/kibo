@@ -1,229 +1,224 @@
 # KIBO
 
-A FastAPI backend for Mitsubishi spare parts tracking with AI-assisted chat and direct part stock lookup.
+KIBO is an AI-powered chat application for workshop spare parts operations. It helps teams track stock, find the right part, and check availability from natural-language requests based on part description and car model.
 
-## Overview
+If a user does not provide the car type/model, KIBO asks a follow-up question before proceeding so results stay accurate.
 
-`SparePartAI` is designed for mechanic workshops to query Mitsubishi part availability and get conversational assistance. It combines:
+KIBO uses agentic AI workflows to:
+- understand user requests in chat,
+- search product catalogs for matching parts,
+- validate and check live stock in SQL,
+- return the most relevant spare part recommendation with availability.
 
-- FastAPI backend with REST endpoints
-- Google Gemini LLM agent for natural-language part inquiries
-- Direct database stock lookup for part numbers
-- Async SQLAlchemy database access, supporting Cloud SQL Auth Proxy locally and Unix socket in deployment
-- Minimal frontend served from `templates/index.html`
+## Core Capabilities
 
-## Key Features
+- Chat-first spare part assistant (`POST /api/v1/chat/message`)
+- Direct stock lookup by part number (`GET /api/v1/parts/{product_number}/stock`)
+- Session reset for conversations (`DELETE /api/v1/chat/session/{session_id}`)
+- Health endpoint (`GET /health`)
+- Hybrid routing:
+  - direct DB path for explicit part-number queries,
+  - agentic LLM + tool-calling path for natural-language requests.
 
-- `POST /api/v1/chat/message`
-  - Accepts a user message and session UUID
-  - Routes queries through an LLM-driven agent or direct part lookup
-  - Returns structured part details and agent telemetry
-- `DELETE /api/v1/chat/session/{session_id}`
-  - Clears in-memory session history for a conversation
-- `GET /api/v1/parts/{product_number}/stock`
-  - Direct stock lookup for a validated product number
-- `GET /health`
-  - Simple health check endpoint
+## Tech Stack
 
-## Requirements
+- FastAPI
+- SQLAlchemy async + `asyncpg`
+- Google Gemini (`google-generativeai`)
+- Vertex AI Agent Search (`google-cloud-discoveryengine`)
+- PostgreSQL (Cloud SQL compatible)
 
-- Python 3.11
-- Docker (optional, for containerized development)
-- Access to Google Cloud credentials for Gemini and Cloud SQL
+## Local Deployment
 
-Dependencies are listed in `requirements.txt`.
+### Prerequisites
 
-## Configuration
+- Python 3.11+
+- Pip
+- Docker Desktop (optional, for Compose workflow)
+- Access credentials for Gemini/Google Cloud services
+- Database access (Cloud SQL via proxy, or compatible PostgreSQL endpoint)
 
-Settings are loaded from environment variables and optionally a `.env` file.
-
-Important variables include:
-
-- `APP_ENV` — `development` or `production`
-- `API_PREFIX` — default is `/api/v1`
-- `CORS_ORIGINS` — e.g. `http://localhost:8000,http://localhost:8080`
-- `GOOGLE_CLOUD_PROJECT`
-- `GOOGLE_CLOUD_LOCATION`
-- `GEMINI_API_KEY`
-- `GEMINI_MODEL`
-- `CLOUDSQL_INSTANCE_CONNECTION_NAME`
-- `CLOUDSQL_DB`
-- `CLOUDSQL_USER`
-- `CLOUDSQL_PASSWORD`
-- `CLOUDSQL_USE_PROXY` — `true` or `false`
-- `CLOUDSQL_PROXY_HOST`
-- `CLOUDSQL_PROXY_PORT`
-
-The app builds a database DSN from these values in `app/core/config.py`.
-
-## Local Development
-
-1. Install Python dependencies:
+### 1) Install dependencies
 
 ```bash
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-2. Create a `.env` file with the required values.
+### 2) Create `.env`
 
-3. Run the app:
+Create `kibo/.env` with at least:
+
+```env
+APP_ENV=development
+LOG_LEVEL=INFO
+API_PREFIX=/api/v1
+CORS_ORIGINS=http://localhost:8000,http://localhost:8080
+
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MAX_OUTPUT_TOKENS=2048
+GEMINI_TEMPERATURE=0.2
+
+AGENT_SEARCH_ENGINE_ID=your-engine-id
+AGENT_SEARCH_LOCATION=global
+
+CLOUDSQL_INSTANCE_CONNECTION_NAME=project:region:instance
+CLOUDSQL_DB=sparepartdb
+CLOUDSQL_USER=your-db-user
+CLOUDSQL_PASSWORD=your-db-password
+CLOUDSQL_USE_PROXY=true
+CLOUDSQL_PROXY_HOST=127.0.0.1
+CLOUDSQL_PROXY_PORT=5432
+
+DB_POOL_MIN=2
+DB_POOL_MAX=10
+
+AGENT_MAX_TOOL_CALLS=4
+RAG_TOP_K=10
+```
+
+Notes:
+- `CORS_ORIGINS` supports comma-separated values.
+- Set `CLOUDSQL_USE_PROXY=false` only when using Unix socket deployment mode.
+
+### 3) Run locally (direct)
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-4. Open the browser:
+Open:
+- App: `http://localhost:8080/`
+- Docs (dev): `http://localhost:8080/docs`
 
-- App frontend: `http://localhost:8080/`
-- API docs (development mode): `http://localhost:8080/docs`
+### 4) Run with Docker Compose (optional)
 
-## Docker
-
-### Build and run locally
+From `kibo/`:
 
 ```bash
 docker compose up --build
 ```
 
-This starts two services:
+Services:
+- `cloudsql-proxy` on `5432`
+- `api` on `http://localhost:8000`
 
-- `cloudsql-proxy` — connects to Cloud SQL using the Cloud SQL Auth Proxy
-- `api` — FastAPI app on port `8000`
-
-Set `ADC_PATH` on Windows before launching if you use local ADC credentials:
+Windows ADC example:
 
 ```powershell
 $env:ADC_PATH="C:\Users\<YOU>\AppData\Roaming\gcloud\application_default_credentials.json"
 ```
 
-### Dockerfile
+## Configuration Reference
 
-The multi-stage `Dockerfile` installs dependencies into a Python venv, copies the app code, and runs Uvicorn on port `8080`.
+KIBO settings are loaded from environment variables via `app/core/config.py`.
+
+Important variables:
+- `APP_ENV`: `development` or `production`
+- `LOG_LEVEL`: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+- `API_PREFIX`
+- `CORS_ORIGINS`
+- `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`
+- `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_MAX_OUTPUT_TOKENS`, `GEMINI_TEMPERATURE`
+- `AGENT_SEARCH_ENGINE_ID`, `AGENT_SEARCH_LOCATION`
+- `CLOUDSQL_INSTANCE_CONNECTION_NAME`, `CLOUDSQL_DB`, `CLOUDSQL_USER`, `CLOUDSQL_PASSWORD`
+- `CLOUDSQL_USE_PROXY`, `CLOUDSQL_PROXY_HOST`, `CLOUDSQL_PROXY_PORT`
+- `DB_POOL_MIN`, `DB_POOL_MAX`
+- `AGENT_MAX_TOOL_CALLS`, `RAG_TOP_K`
+
+## Logging Setup
+
+KIBO uses structured JSON logging to `stdout` from `app/core/logging.py`.
+
+### Default behavior
+
+- `setup_logging()` installs a root `StreamHandler` with JSON formatter.
+- Log payload includes:
+  - `severity`
+  - `logger`
+  - `message`
+  - optional `json_fields` (merged at top level)
+- Noisy loggers (`uvicorn.access`, `sqlalchemy.engine`) are reduced to `WARNING`.
+
+### Enable and tune logging
+
+1. Set level in `.env`:
+
+```env
+LOG_LEVEL=INFO
+```
+
+2. Ensure app startup calls `setup_logging()` (already wired in app startup flow).
+
+3. Emit structured fields in code using `extra={"json_fields": {...}}`.
+
+Example:
+
+```python
+logger.info(
+    "chat_request",
+    extra={
+        "json_fields": {
+            "type": "chat_request",
+            "session_id": session_id,
+            "pathway": pathway,
+            "latency_ms": latency_ms,
+            "total_tokens": input_tokens + output_tokens,
+        }
+    },
+)
+```
+
+### Telemetry logs already included
+
+`app/services/telemetry.py` emits async structured telemetry fields such as:
+- `type`
+- `pathway`
+- `latency_ms`
+- `input_tokens`
+- `output_tokens`
+- `total_tokens`
+- `tool_calls`
+- `tool_count`
+- `session_id`
+- `ts`
+
+This format is ready for log-based metrics in Google Cloud Logging/Monitoring.
 
 ## Project Structure
 
-- `app/main.py` — FastAPI application factory and lifecycle management
-- `app/core/` — configuration, logging, Gemini client, security utilities
-- `app/api/routes/` — chat and parts endpoints
-- `app/db/` — async SQLAlchemy engine and session management
-- `app/schemas/` — request/response models
-- `app/services/agent/` — LLM agent orchestration and tool execution
-- `app/services/inventory/` — part stock database queries
-- `templates/` — frontend landing page
-- `static/` — static assets served by FastAPI
+- `app/main.py`: FastAPI app lifecycle
+- `app/core/`: config, logging, Gemini client, input security
+- `app/api/routes/`: chat + stock endpoints
+- `app/services/agent/`: agent orchestration, prompts, tools
+- `app/services/rag/`: catalog retrieval logic
+- `app/services/inventory/`: SQL inventory queries
+- `app/services/telemetry.py`: structured telemetry logs
+- `app/db/`: ORM models and async engine
+- `templates/`, `static/`: web UI assets
 
 ## API Examples
-
-### Chat message
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/chat/message \
   -H "Content-Type: application/json" \
-  -d '{"session_id":"<uuid>","message":"Do you have Mitsubishi part 7450A951 in stock?"}'
+  -d '{"session_id":"<uuid>","message":"Need front bumper for Xpander"}'
 ```
-
-### Clear session
-
-```bash
-curl -X DELETE http://localhost:8080/api/v1/chat/session/<uuid>
-```
-
-### Stock lookup
 
 ```bash
 curl http://localhost:8080/api/v1/parts/7450A951/stock
 ```
 
-## Notes
-
-- Session history is stored in memory per `session_id` and persists only while the process runs.
-- The agent uses a hybrid approach: direct part number lookup for exact codes, and Gemini tool calls for natural language requests.
-- `docker-compose.yml` is configured for local development with hot-reload and Cloud SQL Auth Proxy support.
-
-
-## Monitoring & Observability
-
-All application monitoring, performance tracking, and log aggregation are handled natively within the **Google Cloud Platform (GCP)** ecosystem via Cloud Logging and Cloud Monitoring using **Log-based Metrics**.
-
-To populate these metrics, the FastAPI backend emits structured JSON logs to `stdout`. Below are the configurations for tracking system performance, LLM token costs, and agent routing logic.
-
----
-
-### 1. Request Latency Metric
-This distribution metric tracks the execution duration of API routes and agent workflows to monitor response times and alert on bottlenecks.
-
-* **Metric Type:** Distribution
-* **Log Metric Name:** `kibo/backend/request_latency`
-* **Unit:** `ms`
-* **Filter Selection:**
-  ```query
-  resource.type="cloud_run_revision" OR resource.type="k8s_container"
-  jsonPayload.message="Request processed"
-  jsonPayload.duration_ms=~".*"
-  ```
-* **Field Name:** `jsonPayload.duration_ms`
-* **Advanced Bucket Classifier:** Explicit
-* **Bounds:** `100, 200, 500, 1000, 2000, 3000, 5000, 10000`
-
----
-
-### 2. LLM Token Usage Metric
-This counter metric extracts and aggregates the total volume of input and output tokens consumed by the Gemini API to monitor and forecast costs.
-
-* **Metric Type:** Counter
-* **Log Metric Name:** `kibo/gemini/token_usage`
-* **Filter Selection:**
-  ```query
-  resource.type="cloud_run_revision" OR resource.type="k8s_container"
-  jsonPayload.event="gemini_completion"
-  jsonPayload.telemetry.total_tokens=~".*"
-  ```
-* **Metric Value Field:** `jsonPayload.telemetry.total_tokens` *(Ensures Cloud Logging calculates the sum of tokens rather than log row count)*
-* **Labels:**
-  * **Label Key:** `model` &rarr; **Field Path:** `jsonPayload.telemetry.model`
-  * **Label Key:** `session_id` &rarr; **Field Path:** `jsonPayload.session_id`
-
----
-
-### 3. Query Pathway Routing Metric
-This counter monitors the application's hybrid logic by measuring how many user queries are handled via a high-speed direct database lookup versus the full Gemini LLM agent loop.
-
-* **Metric Type:** Counter
-* **Log Metric Name:** `kibo/chat/pathway_routing`
-* **Filter Selection:**
-  ```query
-  resource.type="cloud_run_revision" OR resource.type="k8s_container"
-  jsonPayload.event="query_routed"
-  jsonPayload.pathway=~".*"
-  ```
-* **Labels:**
-  * **Label Key:** `pathway_type` &rarr; **Field Path:** `jsonPayload.pathway` *(Expected outputs: `direct_db_lookup` or `llm_agent`)*
-
----
-
-### Expected Application Log Format
-For the filters above to match successfully, ensure your `app/core/logging.py` or telemetry middleware structures logs outputting to `stdout` like this:
-
-```json
-{
-  "message": "Request processed",
-  "event": "gemini_completion",
-  "pathway": "llm_agent",
-  "duration_ms": 1420,
-  "session_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
-  "telemetry": {
-    "model": "gemini-1.5-flash",
-    "total_tokens": 512
-  }
-}
+```bash
+curl -X DELETE http://localhost:8080/api/v1/chat/session/<uuid>
 ```
 
-> [!TIP]
-> Once created in **Logging > Log-based Metrics**, you can directly add these metrics to a custom Google Cloud Monitoring Dashboard or use them to set up Cloud Monitoring alert policies.
-
 ## Notes
 
-- Session history is stored in memory per `session_id` and persists only while the process runs.
-- The agent uses a hybrid approach: direct part number lookup for exact codes, and Gemini tool calls for natural language requests.
-- `docker-compose.yml` is configured for local development with hot-reload and Cloud SQL Auth Proxy support.
+- Session history is in-memory and tied to `session_id`.
+- Responses are limited to Mitsubishi spare-parts scope.
+- For best matching accuracy, include both part description and car model in requests.
